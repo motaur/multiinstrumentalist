@@ -20,6 +20,15 @@ export default {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
+      height: {
+        screen: '100dvh',
+      },
+      minHeight: {
+        screen: '100dvh',
+      },
+      padding: {
+        safe: 'env(safe-area-inset-bottom, 0px)',
+      },
     },
   },
   plugins: [],

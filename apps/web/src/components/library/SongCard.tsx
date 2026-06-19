@@ -7,8 +7,13 @@ interface Props {
   entry: LibraryEntry
 }
 
+const FORMAT_ICON: Record<string, string> = {
+  midi: '🎹',
+  musicxml: '🎼',
+  gp: '🎸',
+}
+
 function fmtSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
@@ -25,43 +30,45 @@ export default function SongCard({ entry }: Props) {
 
   async function remove(e: React.MouseEvent) {
     e.stopPropagation()
-    if (!confirm(`Remove "${entry.title}" from library?`)) return
+    if (!confirm(`Remove "${entry.title}"?`)) return
     await localLibrary.remove(entry.id)
     removeEntry(entry.id)
   }
 
   return (
     <div
-      className="flex items-center gap-3 px-4 py-3 rounded-lg bg-surface-raised hover:bg-surface-overlay cursor-pointer group transition-colors"
+      className="flex items-center gap-3 px-4 py-3.5 active:bg-surface-overlay cursor-pointer"
       onClick={() => navigate(`/player/${entry.id}`)}
     >
-      <div className="text-2xl select-none">
-        {entry.format === 'midi' ? '🎹' : entry.format === 'musicxml' ? '🎼' : '🎸'}
+      {/* Icon */}
+      <div className="w-10 h-10 rounded-xl bg-surface-overlay flex items-center justify-center text-xl shrink-0">
+        {FORMAT_ICON[entry.format] ?? '🎵'}
       </div>
+
+      {/* Info */}
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-sm text-white truncate">{entry.title}</p>
-        <p className="text-xs text-white/50 truncate">
-          {entry.artist ?? 'Unknown artist'} · {fmtSize(entry.sizeBytes)}
+        <p className="text-sm font-medium text-white truncate">{entry.title}</p>
+        <p className="text-xs text-white/40 truncate mt-0.5">
+          {[entry.artist, fmtSize(entry.sizeBytes)].filter(Boolean).join(' · ')}
         </p>
-        {entry.instruments?.length ? (
-          <p className="text-xs text-white/30 truncate mt-0.5">
-            {entry.instruments.join(' · ')}
-          </p>
-        ) : null}
       </div>
+
+      {/* Favorite */}
       <button
-        className="text-lg opacity-0 group-hover:opacity-100 transition-opacity"
-        title={entry.favorite ? 'Unfavorite' : 'Favorite'}
+        className="w-9 h-9 flex items-center justify-center text-lg shrink-0"
         onClick={toggleFavorite}
       >
-        {entry.favorite ? '★' : '☆'}
+        <span className={entry.favorite ? 'text-beat' : 'text-white/20'}>
+          {entry.favorite ? '★' : '☆'}
+        </span>
       </button>
+
+      {/* Remove */}
       <button
-        className="text-white/30 hover:text-accent opacity-0 group-hover:opacity-100 transition-opacity text-sm"
-        title="Remove"
+        className="w-9 h-9 flex items-center justify-center text-white/20 active:text-accent shrink-0"
         onClick={remove}
       >
-        ✕
+        ⋯
       </button>
     </div>
   )

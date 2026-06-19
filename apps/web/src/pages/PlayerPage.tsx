@@ -11,11 +11,13 @@ import Transport from '../components/player/Transport'
 import TrackList from '../components/tracks/TrackList'
 import Fretboard from '../components/fretboard/Fretboard'
 import PianoKeyboard from '../components/piano/PianoKeyboard'
+import BottomSheet from '../components/BottomSheet'
 import type { LibraryEntry } from '@multiinstrumental/shared'
+import type { ViewMode } from '../store/playerStore'
 
 const SOUNDFONT_URL = '/soundfont/sonivox.sf2'
 
-const STAVE_PROFILE: Record<string, alphaTab.StaveProfile> = {
+const STAVE_PROFILE: Record<ViewMode, alphaTab.StaveProfile> = {
   tab: alphaTab.StaveProfile.Tab,
   score: alphaTab.StaveProfile.Score,
   'score-tab': alphaTab.StaveProfile.ScoreTab,
@@ -30,13 +32,23 @@ interface TrackState {
   volume: number
 }
 
+const VIEW_MODES: { value: ViewMode; label: string; icon: string }[] = [
+  { value: 'tab', label: 'Guitar Tab', icon: '🎸' },
+  { value: 'score', label: 'Standard Score', icon: '🎼' },
+  { value: 'score-tab', label: 'Both', icon: '📄' },
+]
+
 export default function PlayerPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const containerRef = useRef<HTMLDivElement>(null)
   const serviceRef = useRef<AlphaTabService | null>(null)
+
   const [activeBeats, setActiveBeats] = useState<ActiveBeats>({ positions: [] })
   const [trackStates, setTrackStates] = useState<TrackState[]>([])
+  const [tracksOpen, setTracksOpen] = useState(false)
+  const [viewOpen, setViewOpen] = useState(false)
+  const [vizOpen, setVizOpen] = useState(false)
 
   const {
     setState,
@@ -44,7 +56,9 @@ export default function PlayerPage() {
     setPosition,
     setPlaybackSpeed,
     setActiveTrack,
+    setViewMode,
     viewMode,
+    activeTrackIndex,
     showFretboard,
     showPiano,
     toggleFretboard,
@@ -74,7 +88,6 @@ export default function PlayerPage() {
             volume: 1,
           })),
         )
-        // Update library entry with parsed metadata
         if (id) {
           const meta = extractMetadata(score, title || id)
           const entry = await localLibrary.add(new ArrayBuffer(0), meta).catch(() => null)
@@ -91,7 +104,7 @@ export default function PlayerPage() {
     })
 
     return () => { svc.destroy(); serviceRef.current = null }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Load file when id changes
@@ -101,17 +114,16 @@ export default function PlayerPage() {
     localLibrary.loadFile({ id, sourceId: 'local-library' } as never)
       .then((bytes) => {
         serviceRef.current?.loadBytes(bytes)
-        // restore position
         return localLibrary.getPosition(id)
       })
       .then((tick) => { if (tick > 0) serviceRef.current?.seek(tick) })
       .catch(() => navigate('/library'))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
   // Sync view mode
   useEffect(() => {
-    serviceRef.current?.setViewMode(STAVE_PROFILE[viewMode] ?? alphaTab.StaveProfile.Tab)
+    serviceRef.current?.setViewMode(STAVE_PROFILE[viewMode])
   }, [viewMode])
 
   const handleMute = useCallback((index: number, muted: boolean) => {
@@ -124,14 +136,10 @@ export default function PlayerPage() {
     setTrackStates((s) => s.map((t) => t.index === index ? { ...t, solo } : t))
   }, [])
 
-  const handleVolume = useCallback((index: number, volume: number) => {
-    serviceRef.current?.setTrackVolume(index, volume)
-    setTrackStates((s) => s.map((t) => t.index === index ? { ...t, volume } : t))
-  }, [])
-
   const handleSelectTrack = useCallback((index: number) => {
     setActiveTrack(index)
     serviceRef.current?.renderTrack(index)
+    setTracksOpen(false)
   }, [setActiveTrack])
 
   const handleSpeedChange = useCallback((speed: number) => {
@@ -139,61 +147,65 @@ export default function PlayerPage() {
     serviceRef.current?.setPlaybackSpeed(speed)
   }, [setPlaybackSpeed])
 
+  const handleSeek = useCallback((tick: number) => {
+    serviceRef.current?.seek(tick)
+  }, [])
+
   if (!id) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4 text-white/40">
-        <span className="text-5xl">🎸</span>
-        <p>Open a song from the Library to start playing.</p>
+        <span className="text-6xl">🎵</span>
+        <p className="text-sm">Open a song from your Library</p>
+        <button
+          className="mt-2 px-6 py-3 rounded-full bg-accent text-white text-sm font-medium"
+          onClick={() => navigate('/library')}
+        >
+          Go to Library
+        </button>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Title bar */}
-      <div className="flex items-center gap-3 px-4 py-2 bg-surface-raised border-b border-surface-overlay shrink-0">
-        <button onClick={() => navigate('/library')} className="text-white/40 hover:text-white text-sm">
-          ← Library
+    <div className="flex flex-col h-screen bg-surface overflow-hidden">
+
+      {/* Top bar */}
+      <div
+        className="flex items-center gap-2 px-3 bg-surface-raised border-b border-surface-overlay shrink-0"
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: '48px' }}
+      >
+        <button
+          className="w-9 h-9 flex items-center justify-center text-white/60 active:text-white rounded-full active:bg-white/10"
+          onClick={() => navigate('/library')}
+        >
+          ‹
         </button>
-        <span className="text-white font-medium text-sm truncate">{title}</span>
-        {artist && <span className="text-white/40 text-sm">— {artist}</span>}
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            className={`text-xs px-2 py-1 rounded ${showFretboard ? 'bg-accent' : 'bg-surface-overlay text-white/50'}`}
-            onClick={toggleFretboard}
-          >
-            Fretboard
-          </button>
-          <button
-            className={`text-xs px-2 py-1 rounded ${showPiano ? 'bg-accent' : 'bg-surface-overlay text-white/50'}`}
-            onClick={togglePiano}
-          >
-            Piano
-          </button>
+        <div className="flex-1 min-w-0 text-center">
+          <p className="text-sm font-semibold text-white truncate leading-tight">{title}</p>
+          {artist && <p className="text-[10px] text-white/40 truncate">{artist}</p>}
         </div>
+        {/* Viz toggle */}
+        <button
+          className={`w-9 h-9 flex items-center justify-center rounded-full text-base active:bg-white/10 ${
+            (showFretboard || showPiano) ? 'text-accent' : 'text-white/40'
+          }`}
+          onClick={() => setVizOpen(true)}
+        >
+          🎹
+        </button>
       </div>
 
-      {/* Main area: track list + score */}
-      <div className="flex flex-1 overflow-hidden">
-        <TrackList
-          tracks={[]}
-          trackStates={trackStates}
-          onMute={handleMute}
-          onSolo={handleSolo}
-          onVolume={handleVolume}
-          onSelect={handleSelectTrack}
+      {/* Score — fills remaining space */}
+      <div className="flex-1 overflow-hidden relative">
+        <div
+          ref={containerRef}
+          className="at-surface w-full h-full overflow-y-auto bg-white"
         />
-        <div className="flex-1 overflow-hidden">
-          <div
-            ref={containerRef}
-            className="at-surface w-full h-full overflow-y-auto bg-white"
-          />
-        </div>
       </div>
 
-      {/* Live views */}
+      {/* Fretboard / Piano strip */}
       {(showFretboard || showPiano) && (
-        <div className="flex gap-3 px-4 py-2 bg-surface border-t border-surface-overlay shrink-0 overflow-x-auto">
+        <div className="flex items-center gap-2 px-3 py-2 bg-surface border-t border-surface-overlay shrink-0 overflow-x-auto">
           {showFretboard && (
             <Fretboard
               positions={activeBeats.positions}
@@ -211,8 +223,80 @@ export default function PlayerPage() {
         onPlay={() => serviceRef.current?.play()}
         onPause={() => serviceRef.current?.pause()}
         onStop={() => serviceRef.current?.stop()}
+        onSeek={handleSeek}
         onSpeedChange={handleSpeedChange}
+        onTracksOpen={() => setTracksOpen(true)}
+        onViewOpen={() => setViewOpen(true)}
       />
+
+      {/* Track mixer sheet */}
+      <BottomSheet
+        open={tracksOpen}
+        onClose={() => setTracksOpen(false)}
+        title="Tracks"
+      >
+        <TrackList
+          tracks={[]}
+          trackStates={trackStates}
+          activeTrackIndex={activeTrackIndex}
+          onMute={handleMute}
+          onSolo={handleSolo}
+          onSelect={handleSelectTrack}
+        />
+      </BottomSheet>
+
+      {/* View mode sheet */}
+      <BottomSheet
+        open={viewOpen}
+        onClose={() => setViewOpen(false)}
+        title="Notation"
+      >
+        <div className="flex flex-col py-2">
+          {VIEW_MODES.map((m) => (
+            <button
+              key={m.value}
+              className={`flex items-center gap-4 px-5 py-4 text-left active:bg-surface-overlay ${
+                viewMode === m.value ? 'text-accent' : 'text-white'
+              }`}
+              onClick={() => { setViewMode(m.value); setViewOpen(false) }}
+            >
+              <span className="text-2xl">{m.icon}</span>
+              <span className="text-sm font-medium">{m.label}</span>
+              {viewMode === m.value && <span className="ml-auto text-accent">✓</span>}
+            </button>
+          ))}
+        </div>
+      </BottomSheet>
+
+      {/* Visualization sheet */}
+      <BottomSheet
+        open={vizOpen}
+        onClose={() => setVizOpen(false)}
+        title="Visualization"
+      >
+        <div className="flex flex-col py-2">
+          <button
+            className={`flex items-center gap-4 px-5 py-4 active:bg-surface-overlay ${
+              showFretboard ? 'text-accent' : 'text-white'
+            }`}
+            onClick={toggleFretboard}
+          >
+            <span className="text-2xl">🎸</span>
+            <span className="text-sm font-medium">Fretboard / Fingering</span>
+            {showFretboard && <span className="ml-auto text-accent">✓</span>}
+          </button>
+          <button
+            className={`flex items-center gap-4 px-5 py-4 active:bg-surface-overlay ${
+              showPiano ? 'text-accent' : 'text-white'
+            }`}
+            onClick={togglePiano}
+          >
+            <span className="text-2xl">🎹</span>
+            <span className="text-sm font-medium">Piano Keyboard</span>
+            {showPiano && <span className="ml-auto text-accent">✓</span>}
+          </button>
+        </div>
+      </BottomSheet>
     </div>
   )
 }

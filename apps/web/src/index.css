@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mobile-first: use dynamic viewport height to account for browser chrome */
+:root {
+  --vh: 1dvh;
+}
+
+/* Prevent overscroll bounce on iOS */
+html, body {
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+  height: 100%;
+}
+
 /* alphaTab score container */
 .at-surface {
   overflow: hidden;

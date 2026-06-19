@@ -35,8 +35,7 @@ export class AlphaTabService {
     const settings = new alphaTab.Settings()
     settings.core.engine = 'svg'
     settings.core.logLevel = alphaTab.LogLevel.None
-    // Tell alphaTab where to find its worker/worklet/core assets
-    settings.core.workerFile = '/alphatab/alphaTab.worker.mjs'
+    // Tell alphaTab where to find its core/worker assets
     settings.core.scriptFile = '/alphatab/alphaTab.core.mjs'
     settings.player.enablePlayer = true
     settings.player.enableCursor = true
