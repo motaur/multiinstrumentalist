@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* alphaTab score container */
+.at-surface {
+  overflow: hidden;
+  position: relative;
+}
+
+.at-surface canvas,
+.at-surface svg {
+  display: block;
+}
+
+/* Active beat cursor highlight */
+.at-cursor-bar {
+  background: rgba(255, 242, 0, 0.12) !important;
+}
+.at-cursor-beat {
+  background: rgba(229, 69, 96, 0.45) !important;
+  width: 3px !important;
+}
+.at-highlight * {
+  fill: #e94560 !important;
+  stroke: #e94560 !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #1a1a2e; }
+::-webkit-scrollbar-thumb { background: #0f3460; border-radius: 3px; }

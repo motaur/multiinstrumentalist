@@ -1,0 +1,16 @@
+{
+  "name": "multiinstrumental",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "test": "pnpm --filter web test",
+    "lint": "pnpm --filter web lint",
+    "typecheck": "pnpm --filter web typecheck"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
