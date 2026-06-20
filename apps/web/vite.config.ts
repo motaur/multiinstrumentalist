@@ -2,40 +2,34 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
-// alphaTab ships Web Workers and AudioWorklets that must be served as files.
-// We exclude it from dep optimization and copy its worker assets via the plugin below.
-function alphaTabAssetsPlugin() {
+// alphaTab bundles workers/worklets using `import.meta.url`-relative paths.
+// When Vite bundles alphaTab into /assets/alphatab-xxxx.js, those relative URLs
+// resolve to /assets/alphaTab.worklet.mjs (404). This plugin rewrites them to
+// use the files we've placed under /public/alphatab/ at build time.
+function alphaTabWorkerUrlFix() {
   return {
-    name: 'alphatab-assets',
-    configureServer(server: { middlewares: { use: (fn: unknown) => void } }) {
-      // Serve alphaTab worker/worklet files from node_modules at /alphatab/
-      const atDist = path.resolve(
-        __dirname,
-        '../../node_modules/.pnpm/@coderline+alphatab@1.8.3/node_modules/@coderline/alphatab/dist',
+    name: 'alphatab-worker-url-fix',
+    transform(code: string, id: string) {
+      if (!id.includes('alphatab')) return null
+      const orig = code
+      code = code.replaceAll(
+        'new alphaTab.Environment.alphaTabUrl("./alphaTab.worker.mjs", import.meta.url)',
+        'new URL("/alphatab/alphaTab.worker.mjs", location.href)',
       )
-      server.middlewares.use((req: { url?: string }, res: { sendFile?: (p: string) => void; end: () => void; setHeader: (k: string, v: string) => void }, next: () => void) => {
-        const url = req.url ?? ''
-        if (url.startsWith('/alphatab/')) {
-          const file = path.join(atDist, url.replace('/alphatab/', ''))
-          res.setHeader('Content-Type', 'application/javascript')
-          // Simple static serve fallback — vite's static middleware handles this
-        }
-        next()
-      })
+      code = code.replaceAll(
+        'new alphaTab.Environment.alphaTabUrl("./alphaTab.worklet.mjs", import.meta.url)',
+        'new URL("/alphatab/alphaTab.worklet.mjs", location.href)',
+      )
+      return code !== orig ? { code, map: null } : null
     },
   }
 }
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), alphaTabWorkerUrlFix()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-    },
-  },
-  server: {
-    fs: {
-      allow: ['../../'],
     },
   },
   optimizeDeps: {
