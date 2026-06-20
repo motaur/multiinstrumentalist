@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useLibraryStore } from '../store/libraryStore'
 import { localLibrary } from '../catalog/IndexedDbLibrary'
 import SongCard from '../components/library/SongCard'
+import DropZone from '../components/library/DropZone'
 import type { LibraryEntry } from '@multiinstrumental/shared'
 
 const ACCEPT = '.gp,.gp3,.gp4,.gp5,.gpx,.mid,.midi,.xml,.musicxml,.mxl'
@@ -44,14 +45,6 @@ export default function LibraryPage() {
     [navigate, upsertEntry, setLoading, setError],
   )
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault()
-      handleFiles(Array.from(e.dataTransfer.files))
-    },
-    [handleFiles],
-  )
-
   const filtered = entries.filter(
     (e) =>
       !search ||
@@ -65,15 +58,26 @@ export default function LibraryPage() {
     <div
       className="flex flex-col h-full bg-surface"
       onDragOver={(e) => e.preventDefault()}
-      onDrop={handleDrop}
+      onDrop={(e) => { e.preventDefault(); handleFiles(Array.from(e.dataTransfer.files)) }}
     >
-      {/* Sticky header */}
+      {/* Header */}
       <div
-        className="shrink-0 bg-surface px-4 pt-4 pb-2"
+        className="shrink-0 bg-surface px-4 pt-4 pb-3 md:px-6 md:pb-4"
         style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)' }}
       >
-        <h1 className="text-xl font-bold text-white mb-3">My Library</h1>
-        <div className="relative">
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-bold text-white">My Library</h1>
+          {/* Desktop: add button in header */}
+          <button
+            className="hidden md:flex items-center gap-1.5 ml-auto px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent-muted disabled:opacity-50 transition-colors"
+            disabled={loading}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {loading ? <span className="animate-spin">◌</span> : '+'}
+            Add files
+          </button>
+        </div>
+        <div className="relative mt-3">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm">🔍</span>
           <input
             type="search"
@@ -85,14 +89,44 @@ export default function LibraryPage() {
         </div>
       </div>
 
-      {/* Song list */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Desktop: two-column layout (song list + drop zone) */}
+      <div className="hidden md:flex flex-1 overflow-hidden gap-0">
+        {/* Song list */}
+        <div className="flex-1 overflow-y-auto border-r border-surface-overlay">
+          {isEmpty ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-white/30 px-8">
+              <span className="text-5xl">🎸</span>
+              <p className="text-sm text-center">Drop files here or click Add files to get started</p>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-2 text-white/30">
+              <span className="text-4xl">🔍</span>
+              <p className="text-sm">No results for "{search}"</p>
+            </div>
+          ) : (
+            <div className="flex flex-col divide-y divide-surface-overlay/50">
+              {filtered.map((e) => <SongCard key={e.id} entry={e as LibraryEntry} />)}
+            </div>
+          )}
+        </div>
+
+        {/* Drop zone panel */}
+        <div className="w-72 shrink-0 flex flex-col items-center justify-center p-6 gap-4">
+          <DropZone onFiles={handleFiles} />
+          <p className="text-xs text-white/20 text-center">
+            Supports .gp, .gp3–5, .gpx, .mid, .xml
+          </p>
+        </div>
+      </div>
+
+      {/* Mobile: single column */}
+      <div className="md:hidden flex-1 overflow-y-auto">
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-8">
             <span className="text-6xl">🎸</span>
             <p className="text-white/60 text-sm leading-relaxed">
               Your library is empty.<br />
-              Tap <strong className="text-white">+</strong> to add Guitar Pro, MIDI, or MusicXML files.
+              Tap <strong className="text-white">+</strong> to add files.
             </p>
           </div>
         ) : filtered.length === 0 ? (
@@ -102,17 +136,15 @@ export default function LibraryPage() {
           </div>
         ) : (
           <div className="flex flex-col divide-y divide-surface-overlay/50">
-            {filtered.map((e) => (
-              <SongCard key={e.id} entry={e as LibraryEntry} />
-            ))}
+            {filtered.map((e) => <SongCard key={e.id} entry={e as LibraryEntry} />)}
           </div>
         )}
       </div>
 
-      {/* FAB — add files */}
+      {/* Mobile FAB */}
       <div
-        className="absolute bottom-20 right-4"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 72px)' }}
+        className="md:hidden absolute"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 72px)', right: '16px' }}
       >
         <button
           className="w-14 h-14 rounded-full bg-accent shadow-lg flex items-center justify-center text-white text-3xl active:scale-95 transition-transform disabled:opacity-50"
@@ -121,15 +153,16 @@ export default function LibraryPage() {
         >
           {loading ? <span className="text-base animate-spin">◌</span> : '+'}
         </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept={ACCEPT}
-          multiple
-          className="hidden"
-          onChange={(e) => handleFiles(Array.from(e.target.files ?? []))}
-        />
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={ACCEPT}
+        multiple
+        className="hidden"
+        onChange={(e) => handleFiles(Array.from(e.target.files ?? []))}
+      />
     </div>
   )
 }
