@@ -35,8 +35,9 @@ export class AlphaTabService {
     const settings = new alphaTab.Settings()
     settings.core.engine = 'svg'
     settings.core.logLevel = alphaTab.LogLevel.None
-    // Tell alphaTab where to find its core/worker assets
     settings.core.scriptFile = '/alphatab/alphaTab.core.mjs'
+    // alphaTab derives fontDirectory from scriptFile URL; override to match public/font/
+    settings.core.fontDirectory = '/font/'
     settings.player.enablePlayer = true
     settings.player.enableCursor = true
     settings.player.enableElementHighlighting = true
